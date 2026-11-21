@@ -2,8 +2,16 @@ package com.bank.cards.card;
 
 import com.bank.cards.client.ClientNotFoundException;
 import com.bank.cards.client.ClientRepository;
+import com.bank.cards.transaction.Transaction;
+import com.bank.cards.transaction.TransactionDto;
+import com.bank.cards.transaction.TransactionMapper;
+import com.bank.cards.transaction.TransactionRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -13,13 +21,17 @@ public class CardService {
     private final CardRepository cardRepository;
     private final ClientRepository clientRepository;
     private final CardMapper cardMapper;
+    private final TransactionMapper transactionMapper;
+    private final TransactionRepository transactionRepository;
 
     public CardService(CardRepository cardRepository,
                        ClientRepository clientRepository,
-                       CardMapper cardMapper) {
+                       CardMapper cardMapper, TransactionMapper transactionMapper, TransactionRepository transactionRepository) {
         this.cardRepository = cardRepository;
         this.clientRepository = clientRepository;
         this.cardMapper = cardMapper;
+        this.transactionMapper = transactionMapper;
+        this.transactionRepository = transactionRepository;
     }
 
     public CardDto getCard(long id) {
@@ -81,6 +93,30 @@ public class CardService {
         return cardMapper.toDtoList(cardRepository.findAllByOrderByCreatedAtDescIdDesc());
     }
 
+    public List<TransactionDto> getCardTransactions(long cardId) {
+        requireCard(cardId);
+        return transactionMapper.toDtoList(
+                transactionRepository.findByCardIdOrderByOccurredAtDescIdDesc(cardId));
+    }
+
+    public List<CardDto> getExpiringCards(long clientId, int days) {
+        LocalDate today = LocalDate.now();
+        return cardMapper.toDtoList(
+                cardRepository.findExpiringCards(clientId, today, today.plusDays(days)));
+    }
+
+    public Page<TransactionDto> getCardTransactionsPage(long cardId, Pageable pageable) {
+        requireCard(cardId);
+        Page<Transaction> page = transactionRepository.findByCardId(cardId, pageable);
+        return new PageImpl<>(transactionMapper.toDtoList(page.getContent()), pageable, page.getTotalElements());
+    }
+
+    public List<TransactionDto> getCardTransactionsBetween(long cardId, LocalDateTime from, LocalDateTime to) {
+        requireCard(cardId);
+        return transactionMapper.toDtoList(
+                transactionRepository.findByCardIdAndOccurredAtBetweenOrderByOccurredAtDescIdDesc(cardId, from, to));
+    }
+
     public CardDto createCard(CreateCardRequest request) {
         Card card = new Card();
         card.setClientId(request.getClientId());
@@ -112,5 +148,10 @@ public class CardService {
         }
         card.setStatus(CardStatus.CLOSED);
         cardRepository.save(card);
+    }
+
+    private void requireCard(long cardId) {
+        cardRepository.findById(cardId)
+                .orElseThrow(() -> new CardNotFoundException(cardId));
     }
 }
