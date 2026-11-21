@@ -1,5 +1,10 @@
 package com.bank.cards.card;
 
+import com.bank.cards.transaction.TransactionDto;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -11,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @RestController
@@ -56,6 +62,33 @@ public class CardController {
     @GetMapping("/api/clients/{clientId}/cards-report")
     public ClientCardsReportDto getClientCardsReport(@PathVariable long clientId) {
         return cardService.getCardsReport(clientId);
+    }
+
+    @GetMapping("/api/cards/{id}/transactions")
+    public List<TransactionDto> getCardTransactions(@PathVariable long id) {
+        return cardService.getCardTransactions(id);
+    }
+
+    @GetMapping("/api/clients/{clientId}/cards/expiring")
+    public List<CardDto> getExpiringCards(@PathVariable long clientId,
+                                          @RequestParam int days) {
+        return cardService.getExpiringCards(clientId, days);
+    }
+
+    @GetMapping("/api/cards/{id}/transactions/page")
+    public Page<TransactionDto> getCardTransactionsPage(@PathVariable long id,
+                                                        @RequestParam(defaultValue = "0") int page,
+                                                        @RequestParam(defaultValue = "10") int size) {
+        Pageable pageable = PageRequest.of(page, size,
+                Sort.by(Sort.Direction.DESC, "occurredAt", "id"));
+        return cardService.getCardTransactionsPage(id, pageable);
+    }
+
+    @GetMapping("/api/cards/{id}/transactions/search")
+    public List<TransactionDto> searchCardTransactions(@PathVariable long id,
+                                                       @RequestParam LocalDateTime from,
+                                                       @RequestParam LocalDateTime to) {
+        return cardService.getCardTransactionsBetween(id, from, to);
     }
 
     @PostMapping("/api/cards")
